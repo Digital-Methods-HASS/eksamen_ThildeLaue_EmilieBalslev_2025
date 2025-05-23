@@ -1,0 +1,299 @@
+---
+title: "Livestock counting in Denmark"
+author: "Thilde Laue Jacobsen og Emilie Balslev"
+date: "2025-09-05"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Making the library and installing packages 
+```{r libraries, echo = FALSE}
+# install.packages("gganimate")
+# install.packages("gganimate")
+# install.packages("gifski")
+# install.packages("av")
+# install.packages("gapminder")
+
+library(scales)
+library(tidyverse)
+library(gganimate)
+library(gifski)
+library(av)
+library(gapminder)
+library(here)
+library(ggplot2)
+```
+
+##Read the first dataset with cattlestock in Jutland
+
+```{r jylland_kreatur}
+kreatur_jylland <- read_csv2("data/jylland_kreatur_count.csv")
+class(kreatur_jylland)
+head(kreatur_jylland)
+
+```
+###Pivot the data longer 
+```{r kreatur_pivot_longer}
+library(tidyverse)
+
+# Pivot the data longer
+kreatur_jylland_long <- kreatur_jylland %>%
+  pivot_longer(
+    cols = -Year,  
+    names_to = "Region",
+    values_to = "Count"
+  )
+head(kreatur_jylland_long)
+```
+## Read the dataset with cattlestock in the Islands
+```{r kreatur_oerne}
+library(readr)
+kreatur_islands <- read_csv2("data/islands_kreatur_count.csv")
+class(kreatur_islands)
+head(kreatur_islands)
+
+```
+
+###Pivot the data longer 
+```{r Kreatur_oerne_pivotlonger}
+library(tidyverse)
+
+# Pivot the data longer
+kreatur_islands_long <- kreatur_islands %>%
+  pivot_longer(
+    cols = -Year,  
+    names_to = "Region",
+    values_to = "Count"
+  )
+head(kreatur_islands_long)
+```
+
+
+##Create the animated plots for Jutland and the Islands and save them as Gif's
+###It was not possible to knit the script with the two animated plots, so we decided to do the function eval=FALSE, so the Gif's are not shown in the html-file, but is visible in the report
+```{r eval=FALSE}
+library(tidyverse)
+library(gganimate)
+library(ggplot2)
+library(scales)
+
+p <- kreatur_jylland_long %>%
+  ggplot(aes(x = Year, y = Count, color = Region, group = Region, size = Count)) +
+  geom_point() +
+  labs(title = "Kreaturtaellinger i Jylland (Year: {frame_time %>% round(0)})",
+       x = "Year",
+       y = "Kreatur Taelling") +
+  transition_time(Year) +
+  ease_aes('linear') +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = seq(0, max(kreatur_jylland_long$Count), by = 25000) 
+  )
+
+
+animate(p, nframes = 200, fps = 10, width = 500, height = 400)
+
+anim_save("kreatur_jylland_tidslinje.gif", animation = last_animation())
+
+```
+
+```{r eval=FALSE}
+library(tidyverse)
+library(gganimate)
+library(ggplot2)
+library(scales)
+
+# Create the animated plot
+q <- kreatur_islands_long %>%
+  ggplot(aes(x = Year, y = Count, color = Region, group = Region, size = Count)) +
+  geom_point() +
+  labs(title = "Kreaturtaellinger på Oerne (Year: {frame_time %>% round(0)})",
+       x = "Year",
+       y = "Kreatur Taelling") +
+  transition_time(Year) +
+  ease_aes('linear') +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = seq(0, max(kreatur_islands_long$Count), by = 25000)
+  )
+
+
+animate(q, nframes = 200, fps = 10, width = 500, height = 400)
+
+anim_save("kreatur_islands_tidslinje.gif", animation = last_animation())
+
+```
+
+###Summarize the two datasets 
+```{r summarize}
+library(tidyverse)
+
+kreatur_jylland_summary <- kreatur_jylland_long %>%
+  group_by(Year) %>%
+  summarize(Total_Count_Jylland = sum(Count, na.rm = TRUE))
+
+kreatur_islands_summary <- kreatur_islands_long %>%
+  group_by(Year) %>%
+  summarize(Total_Count_Islands = sum(Count, na.rm = TRUE))
+
+
+sammenligning_kreatur <- left_join(kreatur_jylland_summary, kreatur_islands_summary, by = "Year")
+
+
+sammenligning_kreatur %>%
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = Total_Count_Jylland, color = "Jylland"), size = 1) +  
+  geom_point(aes(y = Total_Count_Jylland, color = "Jylland"), size = 2) +
+  geom_line(aes(y = Total_Count_Islands, color = "Islands"), size = 1) +  
+  geom_point(aes(y = Total_Count_Islands, color = "Islands"), size = 2) +
+  labs(title = "Udviklingen af kreaturholdet på hhv Oerne og i Jylland",
+       x = "Year",
+       y = "Stoerrelse paa kreaturhold",
+       color = "Region") +
+  scale_color_manual(values = c("Jylland" = "#1f77b4",  
+                               "Islands" = "#ffeb3b")) +  
+  theme_minimal()
+```
+
+##Comparison of livestocks 1866-1914
+###Get the dataset with the pig stock
+```{r svin}
+svin_danmark <- read_csv2("data/Denmark_svin_count.csv")
+class(svin_danmark)
+head(svin_danmark)
+
+```
+
+###Pivot the data longer 
+```{r svin_pivot_longer}
+library(tidyverse)
+
+svin_danmark_long <- svin_danmark %>%
+  pivot_longer(
+    cols = -Year, 
+    names_to = "Region",
+    values_to = "Count"
+  )
+head(svin_danmark_long)
+```
+
+```{r svin_summary}
+svin_danmark_summary <- svin_danmark_long %>%
+  group_by(Year) %>%
+  summarize(Total_Count_Svin = sum(Count, na.rm = TRUE))
+
+head(svin_danmark_summary)
+```
+
+##Join the cattle tibbles
+```{r join_kreatur}
+library(tibble)
+library(dplyr)
+
+
+Jylland <- tibble(
+  Year = c(1866, 1871, 1876, 1881, 1888, 1893, 1898, 1903, 1909, 1914),
+  Total_Count_Jylland = c(694982, 718543, 794698, 883581, 829805, 976331, 986747, 1065324, 1328033, 1495086)
+)
+
+Islands <- tibble(
+  Year = c(1866, 1871, 1876, 1881, 1888, 1893, 1898, 1903, 1909, 1914),
+  Total_Count_Islands = c(498879, 520355, 553623, 586497, 629722, 719859, 758050, 775142, 925949, 967776)
+)
+
+
+kreatur_danmark_summary <- left_join(Jylland, Islands, by = "Year") %>%
+  mutate(Total_Count_All = Total_Count_Jylland + Total_Count_Islands)
+
+
+print(kreatur_danmark_summary)
+```
+
+##Combine the pig and the cattle dataset into one
+```{r svin_kreatur}
+kreatur_alle <- tibble(
+  Year = c(1866, 1871, 1876, 1881, 1888, 1893, 1898, 1903, 1909, 1914),
+  Total_Count_All = c(1193861 , 1238898 , 1348321 , 1470078 , 1459527 , 1696190 , 1744797 , 1840466 , 2253982 , 2462862)
+)
+
+svin_alle <- tibble(
+  Year = c(1866, 1871, 1876, 1881, 1888, 1893, 1898, 1903, 1909, 1914),
+  Total_Count_All = c(381512 , 442421 , 503667 , 527417 , 770785 , 829131 , 1168493 , 1456699 , 1467822 , 2496706)
+)
+
+sammenligning_kreatur_svin <- kreatur_alle %>%
+  left_join(svin_alle, by = "Year")
+
+library(dplyr)
+
+sammenligning_kreatur_svin <- sammenligning_kreatur_svin %>%
+  rename(
+    Kreatur = Total_Count_All.x,
+    Svin = Total_Count_All.y
+  )
+
+
+print(sammenligning_kreatur_svin)
+```
+
+###Pivot the datasets longer
+```{r pivot_longer}
+library(tidyr)
+library(dplyr)
+
+sammenligning_kreatur_svin_long <- sammenligning_kreatur_svin %>%
+  pivot_longer(cols = c(Kreatur, Svin), 
+               names_to = "Type", 
+               values_to = "Count")
+
+head(sammenligning_kreatur_svin_long)
+```
+
+##Make the graph
+```{r kreatur_svin}
+library(ggplot2)
+
+ggplot(sammenligning_kreatur_svin_long, aes(x = factor(Year), y = Count, fill = Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("Kreatur" = "#2ca02c",  
+                               "Svin" = "#d62728")) + 
+  labs(x = "Year", y = "Count", title = "Comparison of Kreatur and Svin Over Time") +
+  theme_minimal()
+```
+
+##Livestock comparison 1920-1940
+###Read the dataset with the livestock from 1920-1940, pivot it longer and make a graph
+```{r svin_kreatur2}
+senere_kreatur_svin <- read_csv2("data/1920_kreatur_svin.csv")
+class(senere_kreatur_svin)
+head(senere_kreatur_svin)
+
+```
+```{r comparison}
+library(tidyr)
+library(dplyr)
+library(scales)
+
+senere_kreatur_svin_long <- senere_kreatur_svin %>%
+  pivot_longer(cols = c(Kreatur, Svin), 
+               names_to = "Type", 
+               values_to = "Count")
+
+library(ggplot2)
+
+ggplot(senere_kreatur_svin_long, aes(x = Year, y = Count, color = Type)) +
+  geom_line(size = 1) + 
+  labs(title = "Comparison of Kreatur and Svin Over Time",
+       x = "Year",
+       y = "Count",
+       color = "Type") +  
+   scale_color_manual(values = c("Kreatur" = "#2ca02c", "Svin" = "#d62728")) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()  
+```
+
+
